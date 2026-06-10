@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador Interactivo Balance PAU 2026 - Canarias</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2pdf para exportar a PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        
+        .font-mono {
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 250px;
+            max-height: 300px;
+        }
+
+        @media (min-width: 1024px) {
+            .chart-container {
+                height: 300px;
+            }
+        }
+
+        .input-number::-webkit-inner-spin-button, 
+        .input-number::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+
+        /* Estilos para la tabla tipo examen */
+        .tabla-examen td, .tabla-examen th {
+            border: 1px solid #e2e8f0;
+            padding: 0.4rem 0.6rem;
+            font-size: 0.75rem;
+            line-height: 1.2;
+        }
+        .tabla-examen th {
+            background-color: #f1f5f9;
+            text-align: left;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+        }
+        .row-subtotal {
+            background-color: #f8fafc;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Navbar / Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">📊</span>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight text-slate-900">Modelo Balance PAU 2026</h1>
+                    <p class="text-xs text-slate-500">Estructura Oficial • Canarias</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-6">
+                <!-- Tabs -->
+                <nav class="flex bg-slate-100 p-1 rounded-lg">
+                    <button onclick="switchView('editor')" id="tab-editor" class="px-4 py-1.5 text-sm font-medium rounded-md bg-white shadow-sm text-blue-600 transition-all">Constructor</button>
+                    <button onclick="switchView('examen')" id="tab-examen" class="px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all">Vista Examen</button>
+                    <button onclick="switchView('practica')" id="tab-practica" class="px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all">Práctica</button>
+                </nav>
+
+                <div class="flex items-center gap-2 border-l border-slate-200 pl-6">
+                    <label class="text-xs font-bold text-slate-500 uppercase tracking-tighter cursor-pointer">Modo Repaso</label>
+                    <button id="examModeToggle" class="relative inline-flex h-5 w-10 items-center rounded-full bg-slate-200 transition-colors focus:outline-none" role="switch">
+                        <span id="toggleKnob" class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition shadow translate-x-1"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- LEFT COLUMN: Views Container -->
+            <div class="lg:col-span-8 space-y-6">
+
+                <!-- SECTION: Editor View -->
+                <div id="view-editor" class="space-y-6">
+                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
+                        <span class="text-xl">🛠️</span>
+                        <p class="text-sm text-blue-800">
+                            <strong>Constructor de Balance:</strong> Introduce los datos aquí. Se agrupan por masas para facilitar la entrada, pero se desglosarán según el modelo oficial en la otra pestaña.
+                        </p>
+                    </div>
+
+                    <!-- ACTIVO Editor -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="bg-slate-50 px-6 py-3 border-b border-slate-200 flex justify-between items-center">
+                            <h3 class="font-bold text-slate-700">ACTIVO</h3>
+                            <span id="totalActivoDisplay" class="font-mono font-bold text-blue-600">0 €</span>
+                        </div>
+                        <div class="p-6 space-y-8">
+                            <div class="space-y-4">
+                                <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-1">Activo No Corriente</h4>
+                                <div id="anc-container" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3"></div>
+                            </div>
+                            <div class="space-y-4">
+                                <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-1">Activo Corriente</h4>
+                                <div id="ac-container" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PN + PASIVO Editor -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="bg-slate-50 px-6 py-3 border-b border-slate-200 flex justify-between items-center">
+                            <h3 class="font-bold text-slate-700">PATRIMONIO NETO Y PASIVO</h3>
+                            <span id="totalPnPDisplay" class="font-mono font-bold text-orange-600">0 €</span>
+                        </div>
+                        <div class="p-6 space-y-8">
+                            <div class="space-y-4">
+                                <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-1">Patrimonio Neto</h4>
+                                <div id="pn-container" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3"></div>
+                            </div>
+                            <div class="space-y-4">
+                                <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-1">Pasivo No Corriente</h4>
+                                <div id="pnc-container" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3"></div>
+                            </div>
+                            <div class="space-y-4">
+                                <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-1">Pasivo Corriente</h4>
+                                <div id="pc-container" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: Official Exam View -->
+                <div id="view-examen" class="hidden space-y-6 animate-in fade-in duration-300">
+                    <div id="examen-export" class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+                        <div class="flex flex-col sm:flex-row items-center justify-between mb-6 border-b-2 border-slate-800 pb-2 gap-4">
+                            <div class="w-full sm:w-1/3 hidden sm:block"></div>
+                            <h2 class="w-full sm:w-1/3 text-center text-lg font-bold uppercase tracking-tight">Balance de Situación - PAU 2026</h2>
+                            <div class="w-full sm:w-1/3 flex justify-end" data-html2canvas-ignore>
+                                <button onclick="downloadPDF()" class="inline-flex items-center gap-2 px-4 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-full text-xs font-bold transition-colors shadow-sm cursor-pointer hover:shadow">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                    Descargar PDF
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full tabla-examen border-collapse">
+                                <thead>
+                                    <tr>
+                                        <th class="w-12">Nº cta</th>
+                                        <th>ACTIVO</th>
+                                        <th class="w-24 text-right">20XX</th>
+                                        <th class="w-12">Nº cta</th>
+                                        <th>PATRIMONIO NETO Y PASIVO</th>
+                                        <th class="w-24 text-right">20XX</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-body">
+                                    <!-- A) ACTIVO NO CORRIENTE vs PATRIMONIO NETO -->
+                                    <tr class="row-subtotal">
+                                        <td></td>
+                                        <td>A) ACTIVO NO CORRIENTE</td>
+                                        <td id="t-anc" class="text-right">0</td>
+                                        <td></td>
+                                        <td>A) PATRIMONIO NETO</td>
+                                        <td id="t-pn" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">206</td>
+                                        <td class="pl-4">I. Inmovilizado intangible (Apli. info.)</td>
+                                        <td id="v-206" class="text-right">0</td>
+                                        <td class="account-code text-center">100/102</td>
+                                        <td class="pl-4">Capital Social / Capital</td>
+                                        <td id="v-100" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td></td>
+                                        <td class="font-semibold">II. Inmovilizado material</td>
+                                        <td></td>
+                                        <td class="account-code text-center">112</td>
+                                        <td class="pl-4">Reserva Legal</td>
+                                        <td id="v-112" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">210</td>
+                                        <td class="pl-4">Terrenos y bienes naturales</td>
+                                        <td id="v-210" class="text-right">0</td>
+                                        <td class="account-code text-center">129</td>
+                                        <td class="pl-4">Resultado del ejercicio</td>
+                                        <td id="v-129" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">211</td>
+                                        <td class="pl-4">Construcciones</td>
+                                        <td id="v-211" class="text-right">0</td>
+                                        <td colspan="3" class="bg-slate-50"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">213</td>
+                                        <td class="pl-4">Maquinaria</td>
+                                        <td id="v-213" class="text-right">0</td>
+                                        <td class="row-subtotal"></td>
+                                        <td class="row-subtotal">B) PASIVO NO CORRIENTE</td>
+                                        <td id="t-pnc" class="text-right row-subtotal">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">214</td>
+                                        <td class="pl-4">Utillaje</td>
+                                        <td id="v-214" class="text-right">0</td>
+                                        <td class="account-code text-center">170</td>
+                                        <td class="pl-4">Deudas L/P con ent. de crédito</td>
+                                        <td id="v-170" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">216</td>
+                                        <td class="pl-4">Mobiliario</td>
+                                        <td id="v-216" class="text-right">0</td>
+                                        <td class="account-code text-center">173</td>
+                                        <td class="pl-4">Prov. de inmovilizado a L/P</td>
+                                        <td id="v-173" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">217</td>
+                                        <td class="pl-4">Equipos para procesos de info.</td>
+                                        <td id="v-217" class="text-right">0</td>
+                                        <td colspan="3" class="bg-slate-50"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">218</td>
+                                        <td class="pl-4">Elementos de transporte</td>
+                                        <td id="v-218" class="text-right">0</td>
+                                        <td class="row-subtotal"></td>
+                                        <td class="row-subtotal">C) PASIVO CORRIENTE</td>
+                                        <td id="t-pc" class="text-right row-subtotal">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">(281)</td>
+                                        <td class="pl-4">Amortización acum. inmov. material</td>
+                                        <td id="v-281" class="text-right">0</td>
+                                        <td class="account-code text-center">400</td>
+                                        <td class="pl-4">Proveedores</td>
+                                        <td id="v-400" class="text-right">0</td>
+                                    </tr>
+                                    <tr class="row-subtotal">
+                                        <td></td>
+                                        <td>B) ACTIVO CORRIENTE</td>
+                                        <td id="t-ac" class="text-right">0</td>
+                                        <td class="account-code text-center">401</td>
+                                        <td class="pl-4">Prov., efec. com. a pagar</td>
+                                        <td id="v-401" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td></td>
+                                        <td class="font-semibold">I. Existencias</td>
+                                        <td></td>
+                                        <td class="account-code text-center">410</td>
+                                        <td class="pl-4">Acreedores por prest. de servicios</td>
+                                        <td id="v-410" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">300</td>
+                                        <td class="pl-4">Mercaderías</td>
+                                        <td id="v-300" class="text-right">0</td>
+                                        <td class="account-code text-center">475</td>
+                                        <td class="pl-4">H.P., acr. por concept. fiscales</td>
+                                        <td id="v-475" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">310</td>
+                                        <td class="pl-4">Materias primas</td>
+                                        <td id="v-310" class="text-right">0</td>
+                                        <td class="account-code text-center">476</td>
+                                        <td class="pl-4">Org. de la Seg. Soc., acr.</td>
+                                        <td id="v-476" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">350</td>
+                                        <td class="pl-4">Productos terminados</td>
+                                        <td id="v-350" class="text-right">0</td>
+                                        <td class="account-code text-center">520</td>
+                                        <td class="pl-4">Deudas C/P con ent. de crédito</td>
+                                        <td id="v-520" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td></td>
+                                        <td class="font-semibold">II. Deudores comerciales</td>
+                                        <td></td>
+                                        <td class="account-code text-center">523</td>
+                                        <td class="pl-4">Prov. de inmovilizado a C/P</td>
+                                        <td id="v-523" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">430</td>
+                                        <td class="pl-4 text-[0.7rem]">Clientes</td>
+                                        <td id="v-430" class="text-right">0</td>
+                                        <td colspan="3" rowspan="4" class="bg-slate-50"></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">431</td>
+                                        <td class="pl-4 text-[0.7rem]">Clientes, efectos comerciales a cobrar</td>
+                                        <td id="v-431" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td></td>
+                                        <td class="font-semibold">III. Efectivo y activos líq.</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">570</td>
+                                        <td class="pl-4 text-[0.7rem]">Caja, euros</td>
+                                        <td id="v-570" class="text-right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="account-code text-center">572</td>
+                                        <td class="pl-4 text-[0.65rem]">Bancos e inst. crédito, c/c vista</td>
+                                        <td id="v-572" class="text-right">0</td>
+                                        <td colspan="3" class="bg-slate-50"></td>
+                                    </tr>
+                                    <tr class="bg-slate-900 text-white font-bold text-xs">
+                                        <td colspan="2" class="text-right p-3">TOTAL ACTIVO (A+B)</td>
+                                        <td id="final-activo" class="text-right p-3">0</td>
+                                        <td colspan="2" class="text-right p-3">TOTAL PAT. NETO Y PASIVO (A+B+C)</td>
+                                        <td id="final-pnp" class="text-right p-3">0</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: Practice View (Drag & Drop) -->
+                <div id="view-practica" class="hidden space-y-6 animate-in fade-in duration-300">
+                    <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <span class="text-3xl drop-shadow-sm">🧩</span>
+                        <div class="flex-grow">
+                            <h3 class="font-bold text-indigo-900 text-lg">Juego de Práctica</h3>
+                            <p class="text-sm text-indigo-800">
+                                Arrastra cada cuenta desde la caja inicial hacia la masa patrimonial correcta (o haz clic en la cuenta y luego en el destino).
+                            </p>
+                        </div>
+                        <div class="flex gap-2 shrink-0">
+                            <button onclick="resetDragAndDrop()" class="px-4 py-2 bg-white border border-indigo-200 text-indigo-600 rounded-md text-sm font-bold hover:bg-indigo-50 transition-colors shadow-sm">Reiniciar</button>
+                            <button onclick="checkDragAndDrop()" class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm">Comprobar</button>
+                        </div>
+                    </div>
+
+                    <div class="drop-zone bg-white rounded-xl shadow-sm border border-slate-200 p-5" data-correct="" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="handleZoneClick(event)">
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2 mb-3 pointer-events-none">Cuentas sin asignar</h3>
+                        <div id="dd-pool" class="zone-target min-h-[60px] flex flex-wrap gap-2 items-start content-start">
+                            <!-- Javascript injects draggable accounts here -->
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- ANC -->
+                        <div class="drop-zone bg-white rounded-xl shadow-sm border border-slate-200 p-4 transition-colors" data-correct="anc" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="handleZoneClick(event)">
+                            <h4 class="text-xs font-bold text-slate-500 mb-2 pointer-events-none">ACTIVO NO CORRIENTE</h4>
+                            <div class="zone-target min-h-[100px] flex flex-wrap gap-2 items-start content-start bg-slate-50 rounded-lg p-3 border border-dashed border-slate-200 h-[calc(100%-1.5rem)]"></div>
+                        </div>
+                        <!-- PN -->
+                        <div class="drop-zone bg-white rounded-xl shadow-sm border border-slate-200 p-4 transition-colors" data-correct="pn" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="handleZoneClick(event)">
+                            <h4 class="text-xs font-bold text-slate-500 mb-2 pointer-events-none">PATRIMONIO NETO</h4>
+                            <div class="zone-target min-h-[100px] flex flex-wrap gap-2 items-start content-start bg-slate-50 rounded-lg p-3 border border-dashed border-slate-200 h-[calc(100%-1.5rem)]"></div>
+                        </div>
+                        <!-- AC -->
+                        <div class="drop-zone bg-white rounded-xl shadow-sm border border-slate-200 p-4 transition-colors" data-correct="ac" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="handleZoneClick(event)">
+                            <h4 class="text-xs font-bold text-slate-500 mb-2 pointer-events-none">ACTIVO CORRIENTE</h4>
+                            <div class="zone-target min-h-[100px] flex flex-wrap gap-2 items-start content-start bg-slate-50 rounded-lg p-3 border border-dashed border-slate-200 h-[calc(100%-1.5rem)]"></div>
+                        </div>
+                        <!-- PNC -->
+                        <div class="drop-zone bg-white rounded-xl shadow-sm border border-slate-200 p-4 transition-colors" data-correct="pnc" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="handleZoneClick(event)">
+                            <h4 class="text-xs font-bold text-slate-500 mb-2 pointer-events-none">PASIVO NO CORRIENTE</h4>
+                            <div class="zone-target min-h-[100px] flex flex-wrap gap-2 items-start content-start bg-slate-50 rounded-lg p-3 border border-dashed border-slate-200 h-[calc(100%-1.5rem)]"></div>
+                        </div>
+                        <!-- PC -->
+                        <div class="drop-zone bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:col-start-2 transition-colors" data-correct="pc" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="handleZoneClick(event)">
+                            <h4 class="text-xs font-bold text-slate-500 mb-2 pointer-events-none">PASIVO CORRIENTE</h4>
+                            <div class="zone-target min-h-[100px] flex flex-wrap gap-2 items-start content-start bg-slate-50 rounded-lg p-3 border border-dashed border-slate-200 h-[calc(100%-1.5rem)]"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN: The Dashboard (Sticky) -->
+            <div class="lg:col-span-4">
+                <div class="sticky top-24 space-y-6">
+                    <!-- Balance Status -->
+                    <div id="statusCard" class="bg-white rounded-xl shadow-md border-l-8 border-slate-300 p-5 transition-all duration-300">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-xs font-black text-slate-400 uppercase">Estado General</h3>
+                                <p id="statusText" class="text-lg font-bold text-slate-700">Sin datos...</p>
+                            </div>
+                            <span id="statusIcon" class="text-2xl">⚖️</span>
+                        </div>
+                        <div class="bg-slate-50 rounded-lg p-3 flex justify-between items-center border border-slate-100">
+                            <span class="text-xs font-medium text-slate-500">Diferencia:</span>
+                            <span id="diffDisplay" class="font-mono font-bold text-slate-800">0 €</span>
+                        </div>
+                    </div>
+
+                    <!-- Visual Breakdown -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                        <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Análisis Visual</h4>
+                        <div class="space-y-6">
+                            <div>
+                                <h5 class="text-[10px] font-bold text-center text-slate-400 mb-2">ACTIVO</h5>
+                                <div class="chart-container">
+                                    <canvas id="assetsChart"></canvas>
+                                </div>
+                            </div>
+                            <div>
+                                <h5 class="text-[10px] font-bold text-center text-slate-400 mb-2">FUENTES DE FINANCIACIÓN</h5>
+                                <div class="chart-container">
+                                    <canvas id="liabilitiesChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Key Metrics -->
+                    <div class="bg-slate-900 rounded-xl shadow-xl p-5 text-white">
+                        <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Equilibrio Financiero</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                                <span class="block text-[10px] text-slate-400 mb-1">F. Maniobra</span>
+                                <span id="fmDisplay" class="text-md font-mono font-bold">0 €</span>
+                            </div>
+                            <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                                <span class="block text-[10px] text-slate-400 mb-1">Solvencia</span>
+                                <span id="solvencyDisplay" class="text-md font-mono font-bold">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Logic -->
+    <script>
+        const state = {
+            anc: [
+                { id: '206', name: 'Aplicaciones informáticas', val: 0 },
+                { id: '210', name: 'Terrenos y bienes naturales', val: 0 },
+                { id: '211', name: 'Construcciones', val: 0 },
+                { id: '213', name: 'Maquinaria', val: 0 },
+                { id: '214', name: 'Utillaje', val: 0 },
+                { id: '216', name: 'Mobiliario', val: 0 },
+                { id: '217', name: 'Equipos para procesos de info.', val: 0 },
+                { id: '218', name: 'Elementos de transporte', val: 0 },
+                { id: '281', name: 'Amortización Acumulada', val: 0, neg: true }
+            ],
+            ac: [
+                { id: '300', name: 'Mercaderías', val: 0 },
+                { id: '310', name: 'Materias primas', val: 0 },
+                { id: '350', name: 'Productos terminados', val: 0 },
+                { id: '430', name: 'Clientes', val: 0 },
+                { id: '431', name: 'Clientes, efec. com. cobrar', val: 0 },
+                { id: '570', name: 'Caja, euros', val: 0 },
+                { id: '572', name: 'Bancos e inst. crédito', val: 0 }
+            ],
+            pn: [
+                { id: '100', name: 'Capital Social / Capital', val: 0 },
+                { id: '112', name: 'Reserva Legal', val: 0 },
+                { id: '129', name: 'Resultado del ejercicio', val: 0 }
+            ],
+            pnc: [
+                { id: '170', name: 'Deudas L/P ent. crédito', val: 0 },
+                { id: '173', name: 'Prov. inmovilizado L/P', val: 0 }
+            ],
+            pc: [
+                { id: '400', name: 'Proveedores', val: 0 },
+                { id: '401', name: 'Prov. efectos comerciales', val: 0 },
+                { id: '410', name: 'Acreedores prest. servicios', val: 0 },
+                { id: '475', name: 'H.P. Acreedora', val: 0 },
+                { id: '476', name: 'Org. Seg. Social Acr.', val: 0 },
+                { id: '520', name: 'Deudas C/P ent. crédito', val: 0 },
+                { id: '523', name: 'Prov. inmovilizado C/P', val: 0 }
+            ]
+        };
+
+        let examMode = false;
+        let charts = {};
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderInputs();
+            initCharts();
+            updateCalculations();
+            initDragAndDrop();
+            document.getElementById('examModeToggle').addEventListener('click', toggleExamMode);
+        });
+
+        function switchView(view) {
+            const views = ['editor', 'examen', 'practica'];
+            
+            views.forEach(v => {
+                const viewEl = document.getElementById('view-' + v);
+                const tabEl = document.getElementById('tab-' + v);
+                if(viewEl) viewEl.classList.add('hidden');
+                if(tabEl) tabEl.className = "px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all";
+            });
+
+            document.getElementById('view-' + view).classList.remove('hidden');
+            document.getElementById('tab-' + view).className = "px-4 py-1.5 text-sm font-medium rounded-md bg-white shadow-sm text-blue-600 transition-all";
+        }
+
+        function toggleExamMode() {
+            examMode = !examMode;
+            const knob = document.getElementById('toggleKnob');
+            const btn = document.getElementById('examModeToggle');
+            
+            if(examMode) {
+                knob.classList.add('translate-x-5');
+                knob.classList.remove('translate-x-1');
+                btn.classList.add('bg-blue-600');
+                btn.classList.remove('bg-slate-200');
+                document.querySelectorAll('.account-code').forEach(el => el.classList.add('invisible'));
+            } else {
+                knob.classList.add('translate-x-1');
+                knob.classList.remove('translate-x-5');
+                btn.classList.add('bg-slate-200');
+                btn.classList.remove('bg-blue-600');
+                document.querySelectorAll('.account-code').forEach(el => el.classList.remove('invisible'));
+            }
+        }
+
+        function renderInputs() {
+            const createInput = (item, type) => {
+                const labelColor = item.neg ? 'text-red-500' : 'text-slate-600';
+                return `
+                    <div class="flex items-center gap-2 group">
+                        <span class="account-code text-[10px] font-mono font-bold text-slate-300 w-12 text-center transition-all group-hover:text-slate-500">${item.id}</span>
+                        <div class="flex-grow">
+                            <label class="text-xs font-medium ${labelColor} truncate block" title="${item.name}">${item.name}</label>
+                        </div>
+                        <input 
+                            type="number" 
+                            data-type="${type}" 
+                            data-id="${item.id}"
+                            oninput="updateValue(this)"
+                            class="input-number w-20 text-right bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none font-mono"
+                            placeholder="0"
+                        >
+                    </div>
+                `;
+            };
+
+            document.getElementById('anc-container').innerHTML = state.anc.map(i => createInput(i, 'anc')).join('');
+            document.getElementById('ac-container').innerHTML = state.ac.map(i => createInput(i, 'ac')).join('');
+            document.getElementById('pn-container').innerHTML = state.pn.map(i => createInput(i, 'pn')).join('');
+            document.getElementById('pnc-container').innerHTML = state.pnc.map(i => createInput(i, 'pnc')).join('');
+            document.getElementById('pc-container').innerHTML = state.pc.map(i => createInput(i, 'pc')).join('');
+        }
+
+        function updateValue(el) {
+            const type = el.dataset.type;
+            const id = el.dataset.id;
+            const val = parseFloat(el.value) || 0;
+            const target = state[type].find(i => i.id === id);
+            if (target) {
+                target.val = val;
+                updateCalculations();
+            }
+        }
+
+        function updateCalculations() {
+            const sum = (arr) => arr.reduce((acc, i) => acc + (i.neg ? -i.val : i.val), 0);
+            
+            const totals = {
+                anc: sum(state.anc),
+                ac: sum(state.ac),
+                pn: sum(state.pn),
+                pnc: sum(state.pnc),
+                pc: sum(state.pc)
+            };
+
+            const totalActivo = totals.anc + totals.ac;
+            const totalPnP = totals.pn + totals.pnc + totals.pc;
+            const diff = totalActivo - totalPnP;
+
+            // Update Header Displays
+            const fmt = (v) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v);
+            document.getElementById('totalActivoDisplay').textContent = fmt(totalActivo);
+            document.getElementById('totalPnPDisplay').textContent = fmt(totalPnP);
+            document.getElementById('diffDisplay').textContent = fmt(diff);
+
+            // Dashboard Ratios
+            const statusCard = document.getElementById('statusCard');
+            const statusText = document.getElementById('statusText');
+            if (totalActivo === 0 && totalPnP === 0) {
+                statusText.textContent = "Introduce datos...";
+            } else if (Math.abs(diff) < 0.01) {
+                statusCard.classList.add('border-emerald-500', 'bg-emerald-50');
+                statusText.textContent = "¡Cuadrado!";
+            } else {
+                statusCard.classList.remove('border-emerald-500', 'bg-emerald-50');
+                statusText.textContent = "Descuadrado";
+            }
+
+            const fm = totals.ac - totals.pc;
+            document.getElementById('fmDisplay').textContent = fmt(fm);
+            document.getElementById('fmDisplay').className = `text-md font-mono font-bold ${fm < 0 ? 'text-red-500' : 'text-emerald-500'}`;
+            
+            const exigibleTotal = totals.pnc + totals.pc;
+            const solvency = exigibleTotal > 0 ? (totalActivo / exigibleTotal).toFixed(2) : '-';
+            document.getElementById('solvencyDisplay').textContent = solvency;
+
+            // Update Tables
+            updateExamenTable(totals);
+            updateCharts(totals);
+        }
+
+        function updateExamenTable(totals) {
+            const setV = (id, val) => {
+                const el = document.getElementById(`v-${id}`);
+                if(el) el.textContent = val.toLocaleString('es-ES');
+            };
+            const setT = (id, val) => {
+                const el = document.getElementById(`t-${id}`);
+                if(el) el.textContent = val.toLocaleString('es-ES');
+            };
+
+            // Totales Masas
+            setT('anc', totals.anc);
+            setT('ac', totals.ac);
+            setT('pn', totals.pn);
+            setT('pnc', totals.pnc);
+            setT('pc', totals.pc);
+            
+            // Totales Finales
+            document.getElementById('final-activo').textContent = (totals.anc + totals.ac).toLocaleString('es-ES');
+            document.getElementById('final-pnp').textContent = (totals.pn + totals.pnc + totals.pc).toLocaleString('es-ES');
+
+            // Cuentas Activo
+            state.anc.forEach(i => setV(i.id, i.neg ? -i.val : i.val));
+            state.ac.forEach(i => setV(i.id, i.val));
+
+            // Cuentas PN y Pasivo
+            state.pn.forEach(i => setV(i.id, i.val));
+            state.pnc.forEach(i => setV(i.id, i.val));
+            state.pc.forEach(i => setV(i.id, i.val));
+        }
+
+        function initCharts() {
+            const common = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '75%' };
+            charts.assets = new Chart(document.getElementById('assetsChart'), {
+                type: 'doughnut', data: { labels: ['ANC', 'AC'], datasets: [{ data: [1, 1], backgroundColor: ['#3b82f6', '#06b6d4'], borderWidth: 0 }] }, options: common
+            });
+            charts.liabilities = new Chart(document.getElementById('liabilitiesChart'), {
+                type: 'doughnut', data: { labels: ['PN', 'PNC', 'PC'], datasets: [{ data: [1, 1, 1], backgroundColor: ['#10b981', '#f97316', '#ef4444'], borderWidth: 0 }] }, options: common
+            });
+        }
+
+        function updateCharts(t) {
+            charts.assets.data.datasets[0].data = [Math.max(0.1, t.anc), Math.max(0.1, t.ac)];
+            charts.assets.update();
+            charts.liabilities.data.datasets[0].data = [Math.max(0.1, t.pn), Math.max(0.1, t.pnc), Math.max(0.1, t.pc)];
+            charts.liabilities.update();
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById('examen-export');
+            const opt = {
+                margin:       10,
+                filename:     'Balance_Situacion_PAU_2026.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // --- MODO PRÁCTICA (DRAG & DROP) ---
+        let selectedPill = null;
+
+        function initDragAndDrop() {
+            const pool = document.getElementById('dd-pool');
+            if(!pool) return;
+            pool.innerHTML = '';
+            
+            document.querySelectorAll('.zone-target').forEach(el => {
+                if(el.id !== 'dd-pool') el.innerHTML = '';
+            });
+
+            let allAccounts = [];
+            for (const [mass, items] of Object.entries(state)) {
+                items.forEach(item => {
+                    allAccounts.push({ ...item, mass });
+                });
+            }
+
+            // Desordenar
+            allAccounts.sort(() => Math.random() - 0.5);
+
+            allAccounts.forEach(acc => {
+                const el = document.createElement('div');
+                el.id = 'dd-' + acc.id;
+                el.draggable = true;
+                el.dataset.mass = acc.mass;
+                const visibilityClass = examMode ? 'invisible' : '';
+                
+                el.innerHTML = `<span class="account-code text-[10px] font-mono font-bold text-slate-400 mr-1 w-6 inline-block text-center transition-all ${visibilityClass}">${acc.id}</span>${acc.name}`;
+                el.className = "cursor-move px-3 py-1.5 text-xs font-medium border rounded-md shadow-sm transition-all dd-item bg-white border-slate-200 text-slate-700 hover:border-blue-400 select-none";
+                el.ondragstart = drag;
+                el.onclick = handlePillClick;
+                pool.appendChild(el);
+            });
+        }
+
+        function allowDrop(ev) { ev.preventDefault(); }
+
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+            if(selectedPill) {
+                selectedPill.classList.remove('ring-2', 'ring-blue-500', 'scale-105');
+                selectedPill = null;
+            }
+        }
+
+        function drop(ev) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const draggedElement = document.getElementById(data);
+            if (!draggedElement) return;
+            movePillToZone(draggedElement, ev.target);
+        }
+
+        function handlePillClick(ev) {
+            ev.stopPropagation(); // Evitar click en la zona de atrás
+            const pill = ev.currentTarget;
+            if (selectedPill === pill) {
+                pill.classList.remove('ring-2', 'ring-blue-500', 'scale-105');
+                selectedPill = null;
+            } else {
+                if (selectedPill) selectedPill.classList.remove('ring-2', 'ring-blue-500', 'scale-105');
+                selectedPill = pill;
+                selectedPill.classList.add('ring-2', 'ring-blue-500', 'scale-105');
+            }
+        }
+
+        function handleZoneClick(ev) {
+            if (!selectedPill) return;
+            movePillToZone(selectedPill, ev.currentTarget);
+            selectedPill = null;
+        }
+
+        function movePillToZone(pill, targetNode) {
+            const dropZone = targetNode.closest('.drop-zone');
+            if (dropZone) {
+                let container = dropZone.querySelector('.zone-target') || dropZone;
+                container.appendChild(pill);
+                pill.classList.remove('ring-2', 'ring-blue-500', 'scale-105', 'bg-emerald-50', 'border-emerald-400', 'text-emerald-800', 'bg-red-50', 'border-red-400', 'text-red-800');
+                pill.classList.add('bg-white', 'border-slate-200', 'text-slate-700');
+            }
+        }
+
+        function checkDragAndDrop() {
+            document.querySelectorAll('.drop-zone').forEach(zone => {
+                const correctMass = zone.dataset.correct;
+                if (!correctMass) return; 
+
+                const items = zone.querySelectorAll('.dd-item');
+                items.forEach(item => {
+                    item.classList.remove('bg-white', 'border-slate-200', 'text-slate-700', 'bg-emerald-50', 'border-emerald-400', 'text-emerald-800', 'bg-red-50', 'border-red-400', 'text-red-800');
+                    
+                    if (item.dataset.mass === correctMass) {
+                        item.classList.add('bg-emerald-50', 'border-emerald-400', 'text-emerald-800'); // Correcto
+                    } else {
+                        item.classList.add('bg-red-50', 'border-red-400', 'text-red-800'); // Incorrecto
+                    }
+                });
+            });
+        }
+
+        function resetDragAndDrop() {
+            initDragAndDrop();
+        }
+    </script>
+</body>
+</html>
