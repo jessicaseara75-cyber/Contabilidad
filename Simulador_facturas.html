@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Facturas - Prácticas Contabilidad</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2pdf para exportar a PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .font-mono { font-family: 'Roboto Mono', monospace; }
+        .input-text { @apply w-full bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-xs focus:ring-2 focus:ring-amber-500 outline-none transition-all; }
+        .input-number { @apply w-full text-right bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-amber-500 outline-none; }
+        
+        /* Estilos de la factura en papel A4 */
+        .factura-papel { 
+            background: white; 
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); 
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+            color: #1e293b;
+        }
+        
+        .tabla-factura th { border-bottom: 1px solid #cbd5e1; padding: 12px 8px; font-size: 0.75rem; text-align: left; color: #475569; font-weight: 700; }
+        .tabla-factura td { border-bottom: 1px solid #f1f5f9; padding: 12px 8px; font-size: 0.8rem; }
+        
+        /* Marca de agua / Sello de estado */
+        .marca-agua {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 8rem;
+            font-weight: 900;
+            opacity: 0.08;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .estado-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Navegación Global del Repositorio -->
+    <div class="bg-slate-900 text-slate-300 text-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center overflow-x-auto">
+            <a href="index.html" class="px-4 py-2 hover:text-white hover:bg-slate-800 transition-colors whitespace-nowrap">⚖️ Balance de Situación</a>
+            <a href="PyG_Simulador.html" class="px-4 py-2 hover:text-white hover:bg-slate-800 transition-colors whitespace-nowrap">📉 Pérdidas y Ganancias</a>
+            <a href="#" class="px-4 py-2 text-white bg-slate-800 font-bold border-b-2 border-amber-500 whitespace-nowrap">🧾 Generador Facturas</a>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">🧾</span>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight text-slate-900">Generador de Facturas Oficial</h1>
+                    <p class="text-xs text-slate-500">Casos Prácticos • Modelo Veri*Factu</p>
+                </div>
+            </div>
+            <button onclick="downloadPDF()" class="inline-flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 rounded-lg text-sm font-bold transition-colors shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Exportar a PDF
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- CONTROLES (Izquierda) -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Estado y Fechas -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider border-b pb-2">Datos Factura & Estado</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="text-[10px] font-bold text-slate-500 uppercase">Nº Factura</label><input type="text" id="f-num" value="" placeholder="Ej: F2026-001" class="input-text" oninput="updateFactura()"></div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase">Estado</label>
+                            <select id="f-status" class="input-text" onchange="updateFactura()">
+                                <option value="pendiente">Pendiente de cobro</option>
+                                <option value="pagada">Pagada</option>
+                                <option value="vencida">Vencida</option>
+                                <option value="borrador">Borrador / Prueba</option>
+                            </select>
+                        </div>
+                        <div><label class="text-[10px] font-bold text-slate-500 uppercase">F. Operación</label><input type="date" id="f-date-op" class="input-text" onchange="updateFactura()"></div>
+                        <div><label class="text-[10px] font-bold text-slate-500 uppercase">F. Factura</label><input type="date" id="f-date-fac" class="input-text" onchange="updateFactura()"></div>
+                        <div class="col-span-2"><label class="text-[10px] font-bold text-slate-500 uppercase">F. Vencimiento</label><input type="date" id="f-date-venc" class="input-text" onchange="updateFactura()"></div>
+                    </div>
+                </div>
+
+                <!-- Emisor -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider border-b pb-2">Emisor (Tú)</h3>
+                    <div><label class="text-[10px] font-bold text-slate-500 uppercase">Logo Emisor</label><input type="file" id="f-logo" accept="image/*" class="input-text text-xs p-1 cursor-pointer" onchange="loadLogo(event)"></div>
+                    <div><label class="text-[10px] font-bold text-slate-500 uppercase">Nombre</label><input type="text" id="e-name" value="" placeholder="Tu nombre o empresa" class="input-text" oninput="updateFactura()"></div>
+                    <div><label class="text-[10px] font-bold text-slate-500 uppercase">NIF/CIF</label><input type="text" id="e-nif" value="" placeholder="12345678X" class="input-text" oninput="updateFactura()"></div>
+                    <div><label class="text-[10px] font-bold text-slate-500 uppercase">Dirección (Línea 1)</label><input type="text" id="e-dir1" value="" placeholder="Calle, número, piso..." class="input-text" oninput="updateFactura()"></div>
+                    <div><label class="text-[10px] font-bold text-slate-500 uppercase">Dirección (Línea 2)</label><input type="text" id="e-dir2" value="" placeholder="CP, Municipio, Provincia" class="input-text" oninput="updateFactura()"></div>
+                </div>
+
+                <!-- Cliente -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
+                    <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider border-b pb-2">Cliente</h3>
+                    <div><label class="text-[10px] font-bold text-slate-500 uppercase">Nombre</label><input type="text" id="c-name" value="" placeholder="Nombre del cliente" class="input-text" oninput="updateFactura()"></div>
+                    <div><label class="text-[10px] font-bold text-slate-500 uppercase">NIF/CIF</label><input type="text" id="c-nif" value="" placeholder="A12345678" class="input-text" oninput="updateFactura()"></div>
+                    <div><label class="text-[10px] font-bold text-slate-500 uppercase">Dirección (Línea 1)</label><input type="text" id="c-dir1" value="" placeholder="Calle, número..." class="input-text" oninput="updateFactura()"></div>
+                    <div><label class="text-[10px] font-bold text-slate-500 uppercase">Dirección (Línea 2)</label><input type="text" id="c-dir2" value="" placeholder="CP, Municipio, País" class="input-text" oninput="updateFactura()"></div>
+                </div>
+
+                <!-- Conceptos e Impuestos -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider">Conceptos</h3>
+                        <button onclick="addItem()" class="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded transition-colors">+ Añadir</button>
+                    </div>
+                    <div id="items-editor" class="space-y-2"></div>
+
+                    <div class="border-t pt-4 grid grid-cols-2 gap-3">
+                        <div><label class="text-[10px] font-bold text-slate-500 uppercase">IGIC (%)</label><input type="number" id="f-igic" value="7" class="input-number text-left" oninput="updateFactura()"></div>
+                        <div><label class="text-[10px] font-bold text-slate-500 uppercase">Retención IRPF (%)</label><input type="number" id="f-irpf" value="0" class="input-number text-left text-red-600" oninput="updateFactura()"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA PREVIA FACTURA (Derecha) -->
+            <div class="lg:col-span-8">
+                <div class="sticky top-24 pb-12">
+                    <div id="factura-document" class="factura-papel p-10 sm:p-14 min-h-[800px]">
+                        
+                        <!-- Marca de agua dinámica -->
+                        <div id="doc-watermark" class="marca-agua text-slate-300">PRUEBA</div>
+
+                        <!-- Cabecera Superior -->
+                        <div class="flex justify-between items-start mb-12">
+                            <!-- Logo y Emisor -->
+                            <div>
+                                <div id="logo-container" class="border-2 border-dashed border-slate-300 rounded-lg mb-4 w-48 h-24 flex items-center justify-center text-center overflow-hidden">
+                                    <span id="logo-text" class="text-slate-400 font-bold tracking-widest text-sm">TU LOGO</span>
+                                    <img id="doc-logo" src="" alt="Logo" class="hidden max-w-full max-h-full object-contain">
+                                </div>
+                                <p id="doc-e-name" class="font-bold text-sm text-slate-900">Carlos Mendoza</p>
+                                <p id="doc-e-nif" class="text-[11px] text-slate-600">13245768X</p>
+                                <p id="doc-e-dir1" class="text-[11px] text-slate-600">Avda. Los Barros, 12</p>
+                                <p id="doc-e-dir2" class="text-[11px] text-slate-600">38410 Los Realejos, Santa Cruz de Tenerife, España</p>
+                            </div>
+
+                            <!-- QR Tributario -->
+                            <div class="text-right flex flex-col items-end">
+                                <p class="text-[10px] font-bold text-slate-600 mb-1">QR tributario</p>
+                                <!-- SVG Simulación QR -->
+                                <svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="border border-slate-200 p-1 mb-1">
+                                    <path d="M10 10H40V40H10V10ZM20 20V30H30V20H20ZM60 10H90V40H60V10ZM70 20V30H80V20H70ZM10 60H40V90H10V60ZM20 70V80H30V70H20Z" fill="#94a3b8"/>
+                                    <rect x="50" y="10" width="10" height="10" fill="#94a3b8"/>
+                                    <rect x="50" y="30" width="10" height="10" fill="#94a3b8"/>
+                                    <rect x="70" y="50" width="20" height="10" fill="#94a3b8"/>
+                                    <rect x="50" y="60" width="10" height="30" fill="#94a3b8"/>
+                                    <rect x="70" y="70" width="10" height="10" fill="#94a3b8"/>
+                                    <rect x="90" y="70" width="10" height="20" fill="#94a3b8"/>
+                                    <rect x="60" y="80" width="20" height="10" fill="#94a3b8"/>
+                                </svg>
+                                <p class="text-[10px] font-black tracking-widest text-slate-800">VERI*FACTU</p>
+                            </div>
+                        </div>
+
+                        <!-- Info Cliente y Factura -->
+                        <div class="grid grid-cols-2 gap-8 mb-8">
+                            <!-- Datos Cliente -->
+                            <div>
+                                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">CLIENTE</h3>
+                                <p id="doc-c-name" class="font-bold text-sm text-slate-900">Innovación Digital S.L</p>
+                                <p id="doc-c-nif" class="text-[11px] text-slate-600">B98765432</p>
+                                <p id="doc-c-dir1" class="text-[11px] text-slate-600">Francisco La Roche 45</p>
+                                <p id="doc-c-dir2" class="text-[11px] text-slate-600 w-3/4">38001 Santa Cruz de Tenerife, Santa Cruz de Tenerife, España</p>
+                                
+                                <div class="mt-6 text-[11px] text-slate-600">
+                                    <p>Prestación de servicios</p>
+                                    <p class="underline decoration-slate-300 underline-offset-2">Fecha de la operación <span id="doc-date-op">01/06/2026</span></p>
+                                </div>
+                            </div>
+
+                            <!-- Datos Factura -->
+                            <div>
+                                <div class="flex items-center gap-3 border-b border-slate-200 pb-2 mb-3">
+                                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest">FACTURA</h3>
+                                    <span id="doc-badge" class="estado-badge bg-orange-100 text-orange-600">PENDIENTE</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-y-2 text-[11px]">
+                                    <div class="font-bold text-slate-800">Nº de factura</div>
+                                    <div id="doc-num-display" class="text-right text-slate-600">F2026-001</div>
+                                    
+                                    <div class="font-bold text-slate-800">Fecha factura</div>
+                                    <div id="doc-date-fac" class="text-right text-slate-600">-</div>
+                                    
+                                    <div class="font-bold text-slate-800">Fecha vencimiento</div>
+                                    <div id="doc-date-venc" class="text-right text-slate-600">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabla de Conceptos -->
+                        <table class="w-full tabla-factura mb-12">
+                            <thead>
+                                <tr>
+                                    <th>Conceptos</th>
+                                    <th class="w-16 text-right">Cant.</th>
+                                    <th class="w-24 text-right">Precio uni.</th>
+                                    <th class="w-16 text-right">Imp.</th>
+                                    <th class="w-24 text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="doc-items-body">
+                                <!-- JS Inyecta las filas -->
+                            </tbody>
+                        </table>
+
+                        <!-- Totales y Pago -->
+                        <div class="grid grid-cols-12 gap-8 border-t-2 border-slate-800 pt-6">
+                            <!-- Info Pago (Izquierda) -->
+                            <div class="col-span-6">
+                                <h4 class="font-bold text-xs text-slate-800 mb-1">Métodos de pago</h4>
+                                <p class="text-[10px] text-slate-600">Transferencia bancaria al número de cuenta <strong class="text-slate-800">ES69 0000 0000 0000 0000 0000</strong></p>
+                            </div>
+                            
+                            <!-- Resumen Totales (Derecha) -->
+                            <div class="col-span-6 space-y-2 text-xs">
+                                <div class="flex justify-between text-slate-600">
+                                    <span>Base Imponible</span>
+                                    <span id="doc-base" class="font-mono">0,00 €</span>
+                                </div>
+                                <div class="flex justify-between text-slate-600">
+                                    <span id="doc-igic-label">IGIC 7%</span>
+                                    <span id="doc-igic-amount" class="font-mono">0,00 €</span>
+                                </div>
+                                <div class="flex justify-between text-slate-600">
+                                    <span id="doc-irpf-label">Retención 15,00%</span>
+                                    <span id="doc-irpf-amount" class="font-mono text-slate-800">-0,00 €</span>
+                                </div>
+                                <div class="flex justify-between font-bold text-sm border-t border-slate-300 pt-2 mt-2 text-slate-900">
+                                    <span>Total</span>
+                                    <span id="doc-total" class="font-mono">0,00 €</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Empezamos con una plantilla totalmente en blanco y sin fechas por defecto
+
+        let items = [
+            { id: 1, desc: '', qty: 1, price: 0 }
+        ];
+
+        function addItem() {
+            const newId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
+            items.push({ id: newId, desc: 'Nuevo servicio', qty: 1, price: 0 });
+            renderEditor();
+            updateFactura();
+        }
+
+        function removeItem(id) {
+            items = items.filter(i => i.id !== id);
+            renderEditor();
+            updateFactura();
+        }
+
+        function updateItemData(id, field, value) {
+            const item = items.find(i => i.id === id);
+            if (item) {
+                item[field] = field === 'desc' ? value : parseFloat(value) || 0;
+                updateFactura();
+            }
+        }
+
+        function renderEditor() {
+            const container = document.getElementById('items-editor');
+            container.innerHTML = items.map(item => `
+                <div class="bg-slate-50 p-2 rounded border border-slate-200 relative group">
+                    <button onclick="removeItem(${item.id})" class="absolute -right-2 -top-2 bg-red-100 text-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                    <input type="text" value="${item.desc}" oninput="updateItemData(${item.id}, 'desc', this.value)" class="input-text text-xs mb-1">
+                    <div class="flex gap-2">
+                        <div class="w-1/3"><label class="text-[9px] text-slate-500 uppercase font-bold">Cant.</label><input type="number" value="${item.qty}" oninput="updateItemData(${item.id}, 'qty', this.value)" class="input-number text-xs"></div>
+                        <div class="w-2/3"><label class="text-[9px] text-slate-500 uppercase font-bold">Precio/U (€)</label><input type="number" value="${item.price}" oninput="updateItemData(${item.id}, 'price', this.value)" class="input-number text-xs"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadLogo(event) {
+            const file = event.target.files[0];
+            const logoImg = document.getElementById('doc-logo');
+            const logoText = document.getElementById('logo-text');
+            const logoContainer = document.getElementById('logo-container');
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    logoImg.src = e.target.result;
+                    logoImg.classList.remove('hidden');
+                    logoText.classList.add('hidden');
+                    logoContainer.classList.remove('border-2', 'border-dashed', 'border-slate-300');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                logoImg.src = '';
+                logoImg.classList.add('hidden');
+                logoText.classList.remove('hidden');
+                logoContainer.classList.add('border-2', 'border-dashed', 'border-slate-300');
+            }
+        }
+
+        function formatearFecha(fechaStr) {
+            if (!fechaStr) return '-';
+            const [year, month, day] = fechaStr.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        function updateFactura() {
+            // Textos Simples
+            document.getElementById('doc-e-name').textContent = document.getElementById('e-name').value;
+            document.getElementById('doc-e-nif').textContent = document.getElementById('e-nif').value;
+            document.getElementById('doc-e-dir1').textContent = document.getElementById('e-dir1').value;
+            document.getElementById('doc-e-dir2').textContent = document.getElementById('e-dir2').value;
+
+            document.getElementById('doc-c-name').textContent = document.getElementById('c-name').value;
+            document.getElementById('doc-c-nif').textContent = document.getElementById('c-nif').value;
+            document.getElementById('doc-c-dir1').textContent = document.getElementById('c-dir1').value;
+            document.getElementById('doc-c-dir2').textContent = document.getElementById('c-dir2').value;
+
+            document.getElementById('doc-num-display').textContent = document.getElementById('f-num').value;
+            
+            // Fechas
+            document.getElementById('doc-date-op').textContent = formatearFecha(document.getElementById('f-date-op').value);
+            document.getElementById('doc-date-fac').textContent = formatearFecha(document.getElementById('f-date-fac').value);
+            document.getElementById('doc-date-venc').textContent = formatearFecha(document.getElementById('f-date-venc').value);
+
+            // Estado Visual (Marca de agua y Badge)
+            const status = document.getElementById('f-status').value;
+            const watermark = document.getElementById('doc-watermark');
+            const badge = document.getElementById('doc-badge');
+
+            if (status === 'pagada') {
+                watermark.textContent = 'PAGADA';
+                watermark.className = 'marca-agua text-emerald-400 opacity-20';
+                badge.textContent = 'PAGADA';
+                badge.className = 'estado-badge bg-emerald-100 text-emerald-700';
+            } else if (status === 'vencida') {
+                watermark.textContent = 'VENCIDA';
+                watermark.className = 'marca-agua text-red-400 opacity-20';
+                badge.textContent = 'VENCIDA';
+                badge.className = 'estado-badge bg-red-100 text-red-700';
+            } else if (status === 'borrador') {
+                watermark.textContent = 'PRUEBA';
+                watermark.className = 'marca-agua text-slate-300 opacity-20';
+                badge.textContent = 'BORRADOR';
+                badge.className = 'estado-badge bg-slate-200 text-slate-600';
+            } else {
+                watermark.textContent = ''; // Ocultar marca de agua si es normal/pendiente
+                badge.textContent = 'PENDIENTE';
+                badge.className = 'estado-badge bg-orange-100 text-orange-600';
+            }
+
+            // Cálculos
+            const fmtNum = (v) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+            const fmt = (v) => fmtNum(v) + ' €';
+            
+            const igicRate = parseFloat(document.getElementById('f-igic').value) || 0;
+            const irpfRate = parseFloat(document.getElementById('f-irpf').value) || 0;
+
+            let baseImponible = 0;
+            let tbodyHtml = '';
+
+            items.forEach(item => {
+                const totalLinea = item.qty * item.price;
+                baseImponible += totalLinea;
+
+                tbodyHtml += `
+                    <tr>
+                        <td class="text-slate-800">${item.desc}</td>
+                        <td class="text-right text-slate-600 font-mono">${fmtNum(item.qty)}</td>
+                        <td class="text-right text-slate-600 font-mono">${fmt(item.price)}</td>
+                        <td class="text-right text-slate-600 font-mono">${igicRate}%</td>
+                        <td class="text-right text-slate-800 font-mono">${fmt(totalLinea)}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('doc-items-body').innerHTML = tbodyHtml;
+
+            const igicAmount = baseImponible * (igicRate / 100);
+            const irpfAmount = baseImponible * (irpfRate / 100);
+            const total = baseImponible + igicAmount - irpfAmount;
+
+            document.getElementById('doc-base').textContent = fmt(baseImponible);
+            
+            document.getElementById('doc-igic-label').textContent = `IGIC ${fmtNum(igicRate)}%`;
+            document.getElementById('doc-igic-amount').textContent = fmt(igicAmount);
+
+            if(irpfRate > 0) {
+                document.getElementById('doc-irpf-label').textContent = `Retención ${fmtNum(irpfRate)}%`;
+                document.getElementById('doc-irpf-amount').textContent = '-' + fmt(irpfAmount);
+                document.getElementById('doc-irpf-label').parentElement.style.display = 'flex';
+            } else {
+                document.getElementById('doc-irpf-label').parentElement.style.display = 'none';
+            }
+            
+            document.getElementById('doc-total').textContent = fmt(total);
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById('factura-document');
+            const numFactura = document.getElementById('f-num').value || 'Factura';
+            
+            // Ocultar marca de agua al imprimir si el estado es pendiente (opcional, pero queda más limpio)
+            const watermark = document.getElementById('doc-watermark');
+            const originalOpacity = watermark.style.opacity;
+            
+            const opt = {
+                margin:       [10, 0, 10, 0], // Margen para encajar bien en A4
+                filename:     `${numFactura}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 800 }, // Forzar el ancho visual
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Inicializar
+        renderEditor();
+        updateFactura();
+    </script>
+</body>
+</html>
