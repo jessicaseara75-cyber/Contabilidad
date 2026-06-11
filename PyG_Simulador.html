@@ -197,14 +197,12 @@
                                 <tbody>
                                     <!-- EXPLOTACIÓN -->
                                     <tr class="bg-slate-50"><td colspan="3" class="font-bold text-slate-500 pl-4">1. Ingresos de explotación</td></tr>
-                                    <tr>
-                                        <td class="account-code text-center">700</td>
-                                        <td class="pl-8">Venta de mercaderías</td>
-                                        <td id="v-700" class="text-right">0</td>
-                                    </tr>
-                                    
+                                    <tr><td class="account-code text-center">700</td><td class="pl-8">Venta de mercaderías</td><td id="v-700" class="text-right">0</td></tr>
+                                    <tr><td class="account-code text-center">705</td><td class="pl-8">Prestación de servicio</td><td id="v-705" class="text-right">0</td></tr>
+									
                                     <tr class="bg-slate-50"><td colspan="3" class="font-bold text-slate-500 pl-4">2. Gastos de explotación</td></tr>
                                     <tr><td class="account-code text-center">(600)</td><td class="pl-8">Compra de mercaderías</td><td id="v-600" class="text-right">0</td></tr>
+									<tr><td class="account-code text-center">(602)</td><td class="pl-8">Compra de otros aprovisionamientos</td><td id="v-602" class="text-right">0</td></tr>
                                     <tr><td class="account-code text-center">(621)</td><td class="pl-8">Arrendamientos y cánones</td><td id="v-621" class="text-right">0</td></tr>
                                     <tr><td class="account-code text-center">(622)</td><td class="pl-8">Reparaciones y conservación</td><td id="v-622" class="text-right">0</td></tr>
                                     <tr><td class="account-code text-center">(625)</td><td class="pl-8">Primas de seguros</td><td id="v-625" class="text-right">0</td></tr>
@@ -361,17 +359,19 @@
     <script>
         const state = {
             ingresosExplo: [
-                { id: '700', name: 'Venta de mercaderías', val: 0 }
+                { id: '700', name: 'Venta de mercaderías', val: 0 },
+				{ id: '705', name: 'Prestación de servicios', val: 0 }
             ],
             gastosExplo: [
                 { id: '600', name: 'Compra de mercaderías', val: 0 },
+				{ id: '602', name: 'Compra de otros aprovisionamientos', val: 0 },
                 { id: '621', name: 'Arrendamientos y cánones', val: 0 },
                 { id: '622', name: 'Reparaciones y conservación', val: 0 },
                 { id: '625', name: 'Primas de seguros', val: 0 },
-                { id: '627', name: 'Publicidad, propaganda y RR.PP.', val: 0 },
+                { id: '627', name: 'Publicidad, propaganda y relaciones públicas.', val: 0 },
                 { id: '628', name: 'Suministros', val: 0 },
                 { id: '640', name: 'Sueldos y salarios', val: 0 },
-                { id: '642', name: 'Seguridad social a cargo emp.', val: 0 },
+                { id: '642', name: 'Seguridad social a cargo de la empresa', val: 0 },
                 { id: '648', name: 'Gastos excepcionales', val: 0 },
                 { id: '681', name: 'Amortización del inmovilizado', val: 0 }
             ],
