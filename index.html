@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador Interactivo Balance PAU 2026 - Canarias</title>
+    <title>Visualizador Interactivo Balance  - Canarias</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
@@ -80,7 +80,7 @@
             <div class="flex items-center gap-3">
                 <span class="text-2xl">📊</span>
                 <div>
-                    <h1 class="font-bold text-lg leading-tight text-slate-900">Modelo Balance PAU 2026</h1>
+                    <h1 class="font-bold text-lg leading-tight text-slate-900">Modelo Balance </h1>
                     <p class="text-xs text-slate-500">Estructura Oficial • Canarias</p>
                 </div>
             </div>
@@ -166,7 +166,7 @@
                     <div id="examen-export" class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
                         <div class="flex flex-col sm:flex-row items-center justify-between mb-6 border-b-2 border-slate-800 pb-2 gap-4">
                             <div class="w-full sm:w-1/3 hidden sm:block"></div>
-                            <h2 class="w-full sm:w-1/3 text-center text-lg font-bold uppercase tracking-tight">Balance de Situación - PAU 2026</h2>
+                            <h2 class="w-full sm:w-1/3 text-center text-lg font-bold uppercase tracking-tight">Balance de Situación </h2>
                             <div class="w-full sm:w-1/3 flex justify-end" data-html2canvas-ignore>
                                 <button onclick="downloadPDF()" class="inline-flex items-center gap-2 px-4 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-full text-xs font-bold transition-colors shadow-sm cursor-pointer hover:shadow">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -696,7 +696,7 @@
             const element = document.getElementById('examen-export');
             const opt = {
                 margin:       10,
-                filename:     'Balance_Situacion_PAU_2026.pdf',
+                filename:     'Balance_Situacion.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2, useCORS: true },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
